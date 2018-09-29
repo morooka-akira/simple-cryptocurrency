@@ -25,7 +25,7 @@ from p2p.message_manager import (
 PING_INTERVAL = 1800 # 30分
 
 class ConnectionManager:
-    def __init__(self, host, my_port):
+    def __init__(self, host, my_port, callback):
         print('Initializeing ConnectionManager...')
         print(f'self.host: {host}')
         print(f'self.my_port: {my_port}')
@@ -37,6 +37,7 @@ class ConnectionManager:
         self.edge_node_set = EdgeNodeList()
         self.__add_peer((host, my_port))
         self.mm = MessageManager()
+        self.callback = callback
 
     # 受付開始処理 
     def start(self):
@@ -51,6 +52,21 @@ class ConnectionManager:
         self.my_c_host = host
         self.my_c_port = port
         self.__connect_to_P2PNW(host, port)
+
+    def get_message_text(self, msg_type, payload = None):
+        """
+        指定したメッセージ種別のプロトコルメッセージを作成して返却する
+        
+        params:
+            msg_type : 作成したいメッセージの種別をMessageManagerの規定に従い指定
+            payload : メッセージにデータを格納したい場合に指定する
+        
+        return:
+            msgtxt : MessageManagerのbuild_messageによって生成されたJSON形式のメッセージ
+        """
+        msgtxt = self.mm.build(msg_type, self.port, payload)
+        print('generated_msg:', msgtxt)
+        return msgtxt
 
     # 指定されたノードへ対してメッセージを送信する
     def send_msg(self, peer, msg):
@@ -70,6 +86,14 @@ class ConnectionManager:
             if peer != (self.host, self.port):
                 print('message will be sent to ...', peer)
                 self.send_msg(peer, msg)
+
+    # Edgeノードリストに登録されている全てのノードに対して同じメッセージをブロードキャストする
+    def send_msg_to_all_edge(self, msg):
+        print('send_msg_to_all_edge was called! ')
+        current_list = self.edge_node_set.get_list()
+        for edge in current_list:
+            print("message will be sent to ... " ,edge)
+            self.send_msg(edge, msg)
 
     # 終了前の処理としてソケットを閉じる
     def connection_close(self):
@@ -151,7 +175,7 @@ class ConnectionManager:
                     print('latest core node list:', new_core_set)
                     self.core_node_set.overwrite(new_core_set)
                 else:
-                    print('received unknown command', cmd)
+                    self.callback((result, reason, cmd, peer_port, payload), None)
                     return
             else:
                 print('Unecxpected status: ', status)

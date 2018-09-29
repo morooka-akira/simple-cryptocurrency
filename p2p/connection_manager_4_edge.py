@@ -19,7 +19,7 @@ from p2p.message_manager import (
 PING_INTERVAL = 10 # for デバッグ
 
 class ConnectionManager4Edge(object):
-    def __init__(self, host, my_port, my_core_host, my_core_port):
+    def __init__(self, host, my_port, my_core_host, my_core_port, callback):
         print('Initializeing ConnectionManager4Edge...')
         print(f'self.host: {host}')
         print(f'self.my_port: {my_port}')
@@ -33,6 +33,7 @@ class ConnectionManager4Edge(object):
         self.my_core_port = my_core_port
         self.core_node_set = CoreNodeList()
         self.mm = MessageManager()
+        self.callback = callback
 
     # 受付開始処理 
     def start(self):
@@ -80,6 +81,10 @@ class ConnectionManager4Edge(object):
         s.close()
         # 接続確認のスレッドの停止
         self.ping_timer.cancel()
+
+    def get_message_text(self, msg_type, payload = None):
+        msgtxt = self.mm.build(msg_type, self.port, payload)
+        return msgtxt
 
     def __connect_to_P2PNW(self, host, port):
         """
@@ -155,7 +160,7 @@ class ConnectionManager4Edge(object):
                     self.core_node_set.overwrite(new_core_set)
                 else:
                     print('received unknown command', cmd)
-                    self.callback(result, reason, cmd, peer_port, payload)
+                    self.callback((result, reason, cmd, peer_port, payload))
                     return
             else:
                 print('Unecxpected status: ', status)

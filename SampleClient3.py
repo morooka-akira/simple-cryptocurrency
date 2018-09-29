@@ -14,7 +14,7 @@ def shutdown_client():
 def main():
     signal.signal(signal.SIGINT, signal_handler)
     global my_p2p_client
-    my_p2p_client = ClientCore(50095, '192.168.100.32', 50090)
+    my_p2p_client = ClientCore(50095, '192.168.100.32', 50082)
     my_p2p_client.start()
 
 if __name__ == '__main__':

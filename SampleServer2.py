@@ -16,7 +16,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     global my_p2p_server
     # 始原のCoreノードとして起動する
-    my_p2p_server = ServerCore(50090, '192.168.11.3', 50082)
+    my_p2p_server = ServerCore(50090, '192.168.100.32', 50082)
     my_p2p_server.start()
     my_p2p_server.join_network()
 
