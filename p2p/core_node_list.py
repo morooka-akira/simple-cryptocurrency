@@ -38,3 +38,9 @@ class CoreNodeList:
         現在接続状態にあるPeerの一覧を返却
         """
         return self.list
+
+    def has_this_peer(self, peer):
+        """
+        与えられたpeerがリストに含まれているかをチェックする
+        """
+        return peer in self.list

@@ -175,7 +175,8 @@ class ConnectionManager:
                     print('latest core node list:', new_core_set)
                     self.core_node_set.overwrite(new_core_set)
                 else:
-                    self.callback((result, reason, cmd, peer_port, payload), None)
+                    is_core = self.__is_in_core_set((addr[0], peer_port))
+                    self.callback((result, reason, cmd, peer_port, payload), is_core, None)
                     return
             else:
                 print('Unecxpected status: ', status)
@@ -279,3 +280,9 @@ class ConnectionManager:
         離脱したと判断されるEdgeノードをリストから削除する。
         """
         self.edge_node_set.remove(edge)
+
+    def __is_in_core_set(self, peer):
+        """
+        与えられたnodeがCoreノードのリストに含まれているか?をチェックする
+        """
+        return self.core_node_set.has_this_peer(peer)

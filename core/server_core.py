@@ -2,8 +2,10 @@ STATE_INIT = 0
 STATE_STANDBY = 1
 STATE_CONNECTED_TO_NETWORK = 2
 STATE_SHUTTING_DOWN = 3
+CHECK_INTERVAL = 10
 
 import socket
+import threading
 from p2p.connection_manager import ConnectionManager
 from p2p.my_protocol_message_handler import (
         MyProtocolMessageHandler,
@@ -17,7 +19,10 @@ from p2p.message_manager import (
         RSP_FULL_CHAIN,
         MSG_ENHANCED,
         )
-
+from blockchain.block_builder import BlockBuilder
+from blockchain.blockchain_manager import BlockchainManager
+from transaction.transaction_pool import TransactionPool
+ 
 class ServerCore:
     def __init__(self, my_port=50082, core_node_host=None, core_node_port=None):
         self.server_state = STATE_INIT
@@ -31,6 +36,11 @@ class ServerCore:
         self.core_node_port = core_node_port
         self.mpmh = MyProtocolMessageHandler()
         self.my_protocol_message_store = []
+        self.bb = BlockBuilder()
+        my_genesis_block = self.bb.generate_genesis_block()
+        self.bm = BlockchainManager(my_genesis_block.to_dict())
+        self.prev_block_hash = self.bm.get_hash(my_genesis_block.to_dict())
+        self.tp = TransactionPool()
 
     def start(self):
         self.server_state = STATE_STANDBY
@@ -56,7 +66,7 @@ class ServerCore:
         s.connect(('8.8.8.8', 80))
         return s.getsockname()[0]
 
-    def __handle_message(self, msg, peer=None):
+    def __handle_message(self, msg, is_core, peer=None):
         """
         ConnectionManagerに引き渡すコールバックの中身
         """
@@ -69,8 +79,18 @@ class ServerCore:
         else:
             cmd = msg[2]
             if cmd == MSG_NEW_TRANSACTION:
-                # TODO: 新規transactionを登録する処理を呼び出す
-                pass
+                # 送信されてくるデータはバイナリ化したjson文字列とう前提で実装する
+                new_transaction = json.loads(msg[4])
+                print('received new_transaction', new_transaction)
+                current_transactions = self.tp.get_stored_transactions()
+                if new_transaction in current_transactions:
+                    print('this is already pooled transaction:', t)
+                    return
+                self.tp.set_new_transaction(new_transaction)
+                if not is_core:
+                    new_message = self.cm.get_message_text(MSG_NEW_BLOCK,
+                            json.dumps(new_block.to_dict()))
+                    self.cm.send_msg_to_all_peer(new_message)
             elif cmd == MSG_NEW_BLOCK:
                 # TODO: 新規ブロックを検証する処理を呼び出す
                 pass
@@ -108,3 +128,19 @@ class ServerCore:
         elif request == 'api_type':
             return 'server_core_api'
 
+    def __generate_block_with_tp(self):
+    result = self.tp.get_stored_transactions()
+    if len(result) == 0:
+        print('Transaction Pool is empty')
+    new_block = self.bb.generate_new_block(result, self.prev_block_hash)
+    self.bm.set_new_block(new_block.to_dict())
+    prev_block_hash = self.bm.get_hash(new_block.to_dict())
+    # ブロック生成に成功したらTransaction Poolはクリアする
+    index = len(result)
+    self.tp.clear_my_transactions(index)
+    print('Current Blockchain is ...', self.bm.chain)
+    print('Current prev_block_hash is ...', self.prev_block_hash)
+
+    self.bb_timer = threading.Timer(CHECK_INTERVAL,
+            self.__generate_block_with_tp)
+    self.bb_timer.start()

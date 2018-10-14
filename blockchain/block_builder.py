@@ -11,5 +11,6 @@ class BlockBuilder:
         return genesis_block
 
     def generate_new_block(self, transaction, previous_block_hash):
+        print('generate_new_block: ', transaction)
         new_block = Block(transaction, previous_block_hash)
         return new_block
